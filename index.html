@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>维塔斯 AI 中转站 · 在线生图实验室</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #2f81f7;
+    --accent-hover: #58a6ff;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+  }
+  .topbar {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+  .brand-dot {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #2f81f7, #8250df);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: #fff;
+  }
+  .endpoint-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35);
+    color: var(--ok); padding: 6px 12px; border-radius: 999px; font-size: 13px;
+  }
+  .lock { font-size: 13px; }
+  .container {
+    max-width: 960px; margin: 24px auto; padding: 0 20px;
+    display: grid; gap: 20px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+  }
+  .panel h2 { font-size: 15px; margin-bottom: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .field label { font-size: 13px; color: var(--muted); }
+  .field input, .field select, .field textarea {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-size: 14px; font-family: inherit; width: 100%;
+  }
+  .field textarea { min-height: 96px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .field .hint { font-size: 12px; color: var(--muted); }
+  .api-key-input { letter-spacing: .3px; font-family: "SF Mono", Consolas, monospace; }
+  .size-row { display: flex; gap: 10px; align-items: center; }
+  .size-btn {
+    flex: 1; background: #0d1117; border: 1px solid var(--border); color: var(--text);
+    padding: 12px 10px; border-radius: 8px; cursor: pointer; font-size: 14px; text-align: center;
+    transition: all .15s;
+  }
+  .size-btn .price { display: block; font-size: 12px; color: var(--ok); margin-top: 4px; }
+  .size-btn.active { border-color: var(--accent); background: rgba(47,129,247,.12); box-shadow: 0 0 0 1px var(--accent); }
+  .size-custom {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-size: 14px; width: 150px;
+  }
+  .btn-gen {
+    width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 13px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .15s;
+  }
+  .btn-gen:hover { background: var(--accent-hover); }
+  .btn-gen:disabled { opacity: .55; cursor: not-allowed; }
+  .status { font-size: 13px; margin-top: 10px; min-height: 20px; color: var(--muted); }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .cost {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.3);
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--warn); margin-top: 12px;
+  }
+  #result {
+    margin-top: 14px; display: grid; gap: 10px;
+  }
+  .img-card {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .img-card img { width: 100%; display: block; }
+  .img-meta {
+    padding: 8px 12px; font-size: 12px; color: var(--muted);
+    display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .img-meta .tag { color: var(--accent-hover); }
+  .foot {
+    text-align: center; font-size: 12px; color: var(--muted);
+    padding: 16px 20px 24px;
+  }
+  .foot a { color: var(--accent-hover); text-decoration: none; }
+  @media (max-width: 640px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .size-row { flex-direction: column; }
+    .size-custom { width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><div class="brand-dot">AI</div>维塔斯 AI 中转站 · 在线生图实验室</div>
+    <div class="endpoint-badge"><span class="lock">🔒</span>接口已锁定：https://www.aiwts.com</div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <h2>⚙️ 生图配置</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label>API Key（仅本次调用使用，不会上传或保存）</label>
+          <input type="password" id="apiKey" class="api-key-input" placeholder="sk-..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label>模型</label>
+          <select id="model">
+            <option value="gpt-image-2">gpt-image-2</option>
+            <option value="doubao-sd-2.5">豆包 SD 2.5（官方 5 折）</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>分辨率档位（价格人民币计价）</label>
+        <div class="size-row">
+          <button type="button" class="size-btn active" data-size="1024x1024" data-cost="0.09">
+            1-2K<span class="price">¥0.09 / 张</span>
+          </button>
+          <button type="button" class="size-btn" data-size="3840x2160" data-cost="0.25">
+            4K<span class="price">¥0.25 / 张</span>
+          </button>
+          <input type="text" id="customSize" class="size-custom" placeholder="自定义 WxH，如 2048x2048">
+        </div>
+        <div class="hint">选择档位自动填充，也可在右侧手动输入自定义分辨率。</div>
+      </div>
+      <div class="field">
+        <label>提示词（Prompt）</label>
+        <textarea id="prompt" placeholder="描述你想要生成的图片，例如：赛博朋克风格的未来城市夜景，霓虹灯光，电影级画质"></textarea>
+      </div>
+      <button class="btn-gen" id="genBtn">开始生成</button>
+      <div class="status" id="status"></div>
+      <div class="cost" id="costBox" style="display:none;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🖼️ 生成结果</h2>
+      <div id="result">
+        <div class="status">生成后将在此处展示图片预览。</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      接口固定指向 <a href="https://www.aiwts.com" target="_blank" rel="noopener">https://www.aiwts.com</a> · 价格与模型请以 <a href="https://www.aiwts.com/pricing" target="_blank" rel="noopener">官网价格页</a> 为准 · 24 小时 99.99% SLA 保障使用率
+    </div>
+  </div>
+
+<script>
+(function () {
+  var ENDPOINT = "https://www.aiwts.com/v1/images/generations";
+  var sizeBtns = document.querySelectorAll(".size-btn");
+  var customSize = document.getElementById("customSize");
+  var currentCost = 0.09;
+
+  sizeBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      sizeBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      customSize.value = "";
+      currentCost = parseFloat(btn.dataset.cost) || 0.09;
+    });
+  });
+
+  customSize.addEventListener("input", function () {
+    sizeBtns.forEach(function (b) { b.classList.remove("active"); });
+  });
+
+  function getSize() {
+    var custom = customSize.value.trim();
+    return custom || "1024x1024";
+  }
+
+  document.getElementById("genBtn").addEventListener("click", doGenerate);
+
+  async function doGenerate() {
+    var apiKey = document.getElementById("apiKey").value.trim();
+    var prompt = document.getElementById("prompt").value.trim();
+    var model = document.getElementById("model").value;
+    var status = document.getElementById("status");
+    var btn = document.getElementById("genBtn");
+
+    if (!apiKey) { setStatus("请先填写 API Key", "err"); return; }
+    if (!prompt) { setStatus("请输入提示词", "err"); return; }
+
+    var size = getSize();
+    var cost = currentCost;
+    // 若是自定义尺寸，价格按 4K 档估算展示（实际以官网计费为准）
+    if (customSize.value.trim() !== "") { cost = 0.25; }
+
+    btn.disabled = true;
+    setStatus("正在生成，请稍候…（接口：www.aiwts.com）", "");
+    showCost(cost);
+
+    try {
+      var resp = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + apiKey
+        },
+        body: JSON.stringify({
+          model: model,
+          prompt: prompt,
+          size: size,
+          n: 1,
+          response_format: "b64_json"
+        })
+      });
+
+      var data = await resp.json().catch(function () { return {}; });
+
+      if (!resp.ok) {
+        var msg = data && data.error && data.error.message ? data.error.message : ("HTTP " + resp.status);
+        setStatus("生成失败：" + msg, "err");
+        return;
+      }
+
+      var b64 = null;
+      if (data.data && data.data.length > 0) {
+        if (data.data[0].b64_json) { b64 = data.data[0].b64_json; }
+        else if (data.data[0].url) { b64 = null; }
+      }
+
+      if (b64) {
+        appendImage("data:image/png;base64," + b64, model, size, cost);
+        setStatus("✅ 生成成功！", "ok");
+      } else if (data.data && data.data[0] && data.data[0].url) {
+        appendRemote(data.data[0].url, model, size, cost);
+        setStatus("✅ 生成成功！", "ok");
+      } else {
+        setStatus("生成失败：返回结果中未找到图片数据", "err");
+      }
+    } catch (e) {
+      setStatus("生成失败：" + e.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function appendImage(src, model, size, cost) {
+    var card = document.createElement("div");
+    card.className = "img-card";
+    var img = document.createElement("img");
+    img.src = src;
+    img.alt = "生成结果";
+    var meta = document.createElement("div");
+    meta.className = "img-meta";
+    meta.innerHTML = '<span class="tag">' + esc(model) + "</span><span>" + esc(size) + ' · 约 ¥' + cost.toFixed(2) + " / 张</span>";
+    card.appendChild(img);
+    card.appendChild(meta);
+    var result = document.getElementById("result");
+    result.innerHTML = "";
+    result.appendChild(card);
+    img.onerror = function () { setStatus("预览加载失败（图片数据异常）", "err"); };
+  }
+
+  function appendRemote(url, model, size, cost) {
+    var card = document.createElement("div");
+    card.className = "img-card";
+    var img = document.createElement("img");
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.alt = "生成结果";
+    var meta = document.createElement("div");
+    meta.className = "img-meta";
+    meta.innerHTML = '<span class="tag">' + esc(model) + "</span><span>" + esc(size) + ' · 约 ¥' + cost.toFixed(2) + ' / 张 · <a href="' + esc(url) + '" target="_blank" rel="noopener">查看原图</a></span>';
+    card.appendChild(img);
+    card.appendChild(meta);
+    var result = document.getElementById("result");
+    result.innerHTML = "";
+    result.appendChild(card);
+  }
+
+  function showCost(cost) {
+    var box = document.getElementById("costBox");
+    box.style.display = "flex";
+    box.innerHTML = "本次估算：约 ¥" + cost.toFixed(2) + " / 张（1 张）· 实际扣费以官网计费为准";
+  }
+
+  function setStatus(text, type) {
+    var status = document.getElementById("status");
+    status.textContent = text;
+    status.className = "status" + (type ? " " + type : "");
+  }
+
+  function esc(s) {
+    var div = document.createElement("div");
+    div.textContent = s == null ? "" : String(s);
+    return div.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>
